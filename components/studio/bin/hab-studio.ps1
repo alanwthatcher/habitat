@@ -383,6 +383,10 @@ function Invoke-StudioRun($cmd) {
 }
 
 function Invoke-StudioBuild($location, $reuse) {
+  # This trap will cause powershell to return an exit code of 1
+  hab 
+  trap { "An error occured in the build!" }
+  
   if($printHelp -or ($location -eq $null)) {
     Write-BuildHelp
     return
@@ -404,6 +408,8 @@ function Remove-Studio {
 
   if(Test-Path $HAB_STUDIO_ROOT) { Remove-Item $HAB_STUDIO_ROOT -Recurse -Force }
 }
+
+$ErrorActionPreference="stop"
 
 # The current version of Habitat Studio
 $script:version='@version@'
