@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::borrow::Cow;
 use std::fmt;
 use std::fs::File;
 use std::io::{self, Read};
@@ -24,12 +25,15 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
+use butterfly;
 use hcore::service::{ApplicationEnvironment, ServiceGroup};
 use iron::modifiers::Header;
 use iron::prelude::*;
 use iron::{headers, status, typemap};
 use persistent;
 use router::Router;
+use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
 use serde_json::{self, Value as Json};
 
 use error::{Error, Result, SupError};
@@ -150,6 +154,36 @@ struct HealthCheckBody {
     stderr: String,
 }
 
+// Proxy for butterfly::Server struct
+#[derive(Debug)]
+struct ButterflyServer {
+    member: butterfly::member::MemberList,
+    service: butterfly::rumor::RumorStore<butterfly::rumor::service::Service>,
+    service_config: butterfly::rumor::RumorStore<butterfly::rumor::service_config::ServiceConfig>,
+    service_file: butterfly::rumor::RumorStore<butterfly::rumor::service_file::ServiceFile>,
+    election: butterfly::rumor::RumorStore<butterfly::rumor::election::Election>,
+    election_update: butterfly::rumor::RumorStore<butterfly::rumor::election::ElectionUpdate>,
+    departure: butterfly::rumor::RumorStore<butterfly::rumor::departure::Departure>,
+}
+
+impl Serialize for ButterflyServer {
+    fn serialize<S>(&self, serializer: S) -> result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut strukt = serializer.serialize_struct("butterfly", 7)?;
+        strukt.serialize_field("member", &self.member)?;
+        strukt.serialize_field("service", &self.service)?;
+        strukt.serialize_field("service_config", &self.service_config)?;
+        strukt.serialize_field("service_file", &self.service_file)?;
+        strukt.serialize_field("election", &self.election)?;
+        strukt.serialize_field("election_update", &self.election_update)?;
+        strukt.serialize_field("departure", &self.departure)?;
+        strukt.end()
+    }
+}
+
+// Begin route handlers
 fn butterfly(req: &mut Request) -> IronResult<Response> {
     let state = req.get::<persistent::Read<ManagerFs>>().unwrap();
     match File::open(&state.butterfly_data_path) {
@@ -264,6 +298,7 @@ fn doc(_req: &mut Request) -> IronResult<Response> {
         APIDOCS,
     )))
 }
+// End route handlers
 
 impl Into<Response> for HealthCheck {
     fn into(self) -> Response {

@@ -189,7 +189,6 @@ pub struct ManagerState {
 
 pub struct Manager {
     pub state: Rc<ManagerState>,
-
     butterfly: butterfly::Server,
     census_ring: CensusRing,
     events_group: Option<ServiceGroup>,
